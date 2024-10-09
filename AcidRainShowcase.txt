@@ -1,0 +1,4 @@
+cd C:\Users\User\Documents\Javaproducts
+javac BouncingRabbit.java
+java BouncingRabbit
+

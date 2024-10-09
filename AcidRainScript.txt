@@ -1,0 +1,173 @@
+-- Variables
+local blockSize = Vector3.new(3, 3, 3) -- Size of the falling blocks
+local dropHeight = 50 -- Height from which the blocks fall
+local blockLifetime = 5 -- Time (in seconds) before the block disappears
+local spawnInterval = 0.4 -- Initial time (in seconds) between each block drop
+local gameRunning = false -- Flag to control the game state
+
+local currentWave = 1 -- Current wave number
+local blocksToSpawn = 50 -- Starting number of blocks to spawn
+
+-- Function to create the game creator label
+local function createCreatorLabel(player)
+	local screenGui = Instance.new("ScreenGui")
+	local textLabel = Instance.new("TextLabel")
+
+	screenGui.Parent = player:WaitForChild("PlayerGui")
+	textLabel.Parent = screenGui
+	textLabel.Size = UDim2.new(0.3, 0, 0.1, 0) -- Size of the label
+	textLabel.Position = UDim2.new(0.7, 0, 0.9, 0) -- Bottom right corner
+	textLabel.Text = "Game made by: synraah"
+	textLabel.TextScaled = true
+	textLabel.BackgroundTransparency = 1 -- Transparent background
+	textLabel.TextColor3 = Color3.new(1, 1, 1) -- White text
+end
+
+-- Function to notify players of the wave countdown
+local function notifyWaveCountdown(player, wave)
+	local screenGui = Instance.new("ScreenGui")
+	local textLabel = Instance.new("TextLabel")
+
+	screenGui.Parent = player:WaitForChild("PlayerGui")
+	textLabel.Parent = screenGui
+	textLabel.Size = UDim2.new(1, 0, 1, 0) -- Fullscreen
+	textLabel.Text = "Wave " .. wave .. " starting in..."
+	textLabel.TextScaled = true
+	textLabel.BackgroundTransparency = 0.5
+	textLabel.BackgroundColor3 = Color3.new(0, 0, 0) -- Black background
+	textLabel.TextColor3 = Color3.new(1, 1, 1) -- White text
+	textLabel.Position = UDim2.new(0, 0, 0, 0) -- Centered on screen
+
+	-- Countdown
+	for countdown = 5, 1, -1 do
+		textLabel.Text = "Wave " .. wave .. " starting in " .. countdown .. "..."
+		wait(1)
+	end
+
+	-- Remove the notification
+	textLabel.Text = "GO!"
+	wait(1)
+	screenGui:Destroy()
+end
+
+-- Function to create and drop the blocks
+local function dropBlock()
+	if not gameRunning then return end -- Stop dropping blocks if the game is not running
+
+	-- Create a new part (block)
+	local block = Instance.new("Part")
+	block.Size = blockSize -- Set size to 3
+	block.Anchored = false -- Allow the block to fall
+	block.Position = Vector3.new(math.random(-50, 50), dropHeight, math.random(-50, 50)) -- Set range back to -50 and 50
+	block.BrickColor = BrickColor.new("Bright red") -- Set color to red
+	block.Material = Enum.Material.SmoothPlastic -- Set material
+	block.Parent = game.Workspace -- Add the block to the game world
+
+	-- Detect when the block touches the Baseplate
+	block.Touched:Connect(function(hit)
+		-- Check if the block hit the Baseplate
+		if hit:IsA("BasePart") and hit.Name == "Baseplate" then
+			block.Anchored = true -- Anchor the block once it hits the Baseplate
+		end
+
+		-- Check for player contact
+		local character = hit.Parent
+		local humanoid = character:FindFirstChild("Humanoid")
+
+		if humanoid then
+			-- Show Game Over message
+			local player = game.Players:GetPlayerFromCharacter(character)
+			if player then
+				local screenGui = Instance.new("ScreenGui")
+				local textLabel = Instance.new("TextLabel")
+
+				screenGui.Parent = player:WaitForChild("PlayerGui")
+				textLabel.Parent = screenGui
+				textLabel.Size = UDim2.new(1, 0, 1, 0) -- Fullscreen
+				textLabel.Text = "Game Over! You reached wave " .. currentWave .. "."
+				textLabel.TextScaled = true
+				textLabel.BackgroundTransparency = 0.5
+				textLabel.BackgroundColor3 = Color3.new(1, 0, 0) -- Red background
+				textLabel.TextColor3 = Color3.new(1, 1, 1) -- White text
+				textLabel.Position = UDim2.new(0, 0, 0, 0) -- Centered on screen
+
+				wait(3) -- Display for 3 seconds
+				screenGui:Destroy() -- Remove the Game Over message
+
+				-- Kick the player from the game
+				player:Kick("Game Lost! You reached wave " .. currentWave .. ".")
+			end
+
+			-- Kill the player
+			humanoid.Health = 0
+
+			-- Reset the game
+			gameRunning = false
+			currentWave = 1
+			blocksToSpawn = 50
+			spawnInterval = 0.4 -- Reset spawn interval
+
+			wait(1) -- Small delay before restarting the game
+			startGame(player) -- Restart the game
+		end
+	end)
+
+	-- Remove the block after the set lifetime
+	game:GetService("Debris"):AddItem(block, blockLifetime)
+end
+
+-- Function to start the game
+local function startGame(player)
+	gameRunning = true
+	notifyWaveCountdown(player, currentWave) -- Notify player of the wave countdown
+
+	wait(1) -- Wait for the last "GO!" to finish
+
+	while gameRunning do
+		for i = 1, blocksToSpawn do
+			dropBlock() -- Call the function to drop a block
+			wait(spawnInterval) -- Wait for the specified interval before dropping the next block
+		end
+
+		-- Increment wave and adjust block count and spawn interval
+		currentWave = currentWave + 1
+		blocksToSpawn = blocksToSpawn + 25 -- Increase blocks by 25 for the next wave
+
+		-- Decrease spawn interval by 0.01 seconds
+		spawnInterval = math.max(0.01, spawnInterval - 0.01) -- Ensure it doesn't go below 0.01 seconds
+
+		-- Notify players of the wave countdown
+		for _, p in ipairs(game.Players:GetPlayers()) do
+			notifyWaveCountdown(p, currentWave)
+		end
+	end
+end
+
+-- Function to create the start button
+local function createStartButton(player)
+	local screenGui = Instance.new("ScreenGui")
+	local startButton = Instance.new("TextButton")
+
+	screenGui.Parent = player:WaitForChild("PlayerGui")
+	startButton.Parent = screenGui
+	startButton.Size = UDim2.new(0.2, 0, 0.1, 0) -- Set size of button
+	startButton.Position = UDim2.new(0.5, -100, 0.5, -25) -- Center the button
+	startButton.Text = "Start"
+	startButton.TextScaled = true
+	startButton.BackgroundColor3 = Color3.new(0, 1, 0) -- Green background
+	startButton.TextColor3 = Color3.new(0, 0, 0) -- Black text
+
+	-- Button click event
+	startButton.MouseButton1Click:Connect(function()
+		createCreatorLabel(player) -- Create creator label
+		screenGui:Destroy() -- Remove the button
+		startGame(player) -- Start the game
+	end)
+end
+
+-- Function to handle player joining
+game.Players.PlayerAdded:Connect(function(player)
+	createStartButton(player) -- Create start button for the player
+end)
+
+-- Start the block fall process (waiting for player to start the game)
